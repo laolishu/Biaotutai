@@ -1,260 +1,443 @@
 ﻿<template>
   <div class="wb" :class="{ 'is-resizing': isResizing || isRightResizing }">
-
-    <!-- ── Header ── -->
-    <header class="wb-header">
-      <div class="hd-left">
-        <el-button class="hd-btn hd-back" text>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          </svg>
-          返回
-        </el-button>
-        <div class="hd-divider"></div>
-        <div class="hd-file">
-          <span class="hd-dot"></span>
-          <span class="hd-filename">dashboard_v3.psd</span>
-          <span class="hd-size">3840 × 1080</span>
-        </div>
+    <!-- 加载状态 -->
+    <div v-if="store.isLoading" class="loading-overlay">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">正在解析设计稿...</p>
+        <el-button class="loading-back-btn" @click="goBack">返回上传</el-button>
       </div>
-      <div class="hd-right">
-        <button class="hd-action" type="button" title="缩放适配" aria-label="缩放适配">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10V13.5H6M13.5 10V13.5H10" stroke="currentColor" stroke-width="1.4"
-              stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-        <button class="hd-action" type="button" title="最大化" aria-label="最大化">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4" />
-          </svg>
-        </button>
-        <button class="hd-action" type="button" :title="theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'"
-          :aria-label="theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'" @click="toggleTheme">
-          <!-- 太阳图标（暗色时显示，提示可切换到亮色） -->
-          <svg v-if="theme === 'dark'" width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4" />
-            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M11.5 3.1l-1.4 1.4M4.5 11.5l-1.4 1.4"
-              stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-          </svg>
-          <!-- 月亮图标（亮色时显示，提示可切换到暗色） -->
-          <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M13 10a5 5 0 01-7-7 6 6 0 107 7z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
-              stroke-linejoin="round" />
-          </svg>
-        </button>
-        <button class="hd-action hd-action-emphasis" type="button" title="导出 JSON" aria-label="导出 JSON">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M8 2.5V10.5M8 10.5L5.5 8M8 10.5L10.5 8" stroke="currentColor" stroke-width="1.4"
-              stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M3 12.5H13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-          </svg>
-        </button>
-      </div>
-    </header>
+    </div>
 
-    <!-- ── 主体三栏 ── -->
-    <div class="wb-body">
-      <!-- 左侧活动栏 -->
-      <div class="activity-shell">
-        <aside class="activity-bar">
-          <button v-for="item in panels" :key="item.id" class="ab-btn" :class="{ active: activePanel === item.id }"
-            :title="item.label" @click="handlePanelToggle(item.id)">
-            <svg v-if="item.id === 'layers'" class="ab-icon" viewBox="0 0 16 16" fill="none">
-              <rect x="2" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
-              <rect x="9" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
-              <rect x="2" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
-              <rect x="9" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
+    <!-- 数据异常状态 -->
+    <div v-else-if="!store.psd || store.layers.length === 0" class="error-overlay">
+      <div class="error-container">
+        <h2>数据异常</h2>
+        <p v-if="store.error">{{ store.error }}</p>
+        <p v-else>未检测到设计稿数据，请重新上传</p>
+        <el-button type="primary" @click="goBack">返回上传</el-button>
+      </div>
+    </div>
+
+    <!-- 正常工作台 -->
+    <template v-else>
+      <!-- ── Header ── -->
+      <header class="wb-header">
+        <div class="hd-left">
+          <el-button class="hd-btn hd-back" text @click="goBack">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
             </svg>
-            <svg v-else class="ab-icon" viewBox="0 0 16 16" fill="none">
-              <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2" />
-              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            返回
+          </el-button>
+          <div class="hd-divider"></div>
+          <div class="hd-file">
+            <span class="hd-dot"></span>
+            <span class="hd-filename">{{ store.psd.name }}</span>
+            <span class="hd-size">{{ store.psd.width }} × {{ store.psd.height }}</span>
+          </div>
+        </div>
+        <div class="hd-right">
+          <button class="hd-action" type="button" title="缩放适配" aria-label="缩放适配">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2.5 6V2.5H6M13.5 6V2.5H10M2.5 10V13.5H6M13.5 10V13.5H10" stroke="currentColor"
+                stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
-        </aside>
-
-        <aside class="activity-panel" :class="{ 'is-collapsed': !isPanelOpen, 'is-resizing': isResizing }"
-          :style="panelStyle">
-          <div v-show="isPanelOpen" class="panel-head">
-            <span>{{ activePanel === 'layers' ? '图层' : '搜索' }}</span>
-            <span v-if="activePanel === 'layers'" class="panel-count">24</span>
-          </div>
-
-          <el-scrollbar v-show="isPanelOpen && activePanel === 'layers'" class="layer-list">
-            <div class="layer-item group active">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <rect x="1" y="1" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">背景组</span>
-              <span class="layer-tag">group</span>
-            </div>
-            <div class="layer-item" style="padding-left:24px">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <path d="M2 2h8v8H2z" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">bg-gradient</span>
-            </div>
-            <div class="layer-item" style="padding-left:24px">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">grid-overlay</span>
-            </div>
-            <div class="layer-item group">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <rect x="1" y="1" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">Header</span>
-              <span class="layer-tag">group</span>
-            </div>
-            <div class="layer-item" style="padding-left:24px">
-              <svg class="layer-icon text-icon" viewBox="0 0 12 12" fill="none">
-                <path d="M2 3h8M6 3v6" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">title-text</span>
-              <span class="layer-tag">text</span>
-            </div>
-            <div class="layer-item" style="padding-left:24px">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <path d="M2 2h8v8H2z" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">logo-img</span>
-              <span class="layer-tag">img</span>
-            </div>
-            <div class="layer-item group">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <rect x="1" y="1" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">Chart-A</span>
-              <span class="layer-tag">group</span>
-            </div>
-            <div class="layer-item" style="padding-left:24px">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <path d="M2 9V5l3-2 3 2 2-3v7" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">chart-bar</span>
-            </div>
-            <div class="layer-item" style="padding-left:24px">
-              <svg class="layer-icon text-icon" viewBox="0 0 12 12" fill="none">
-                <path d="M2 3h8M6 3v6" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">label-x</span>
-              <span class="layer-tag">text</span>
-            </div>
-            <div class="layer-item group">
-              <svg class="layer-icon" viewBox="0 0 12 12" fill="none">
-                <rect x="1" y="1" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" />
-              </svg>
-              <span class="layer-name">KPI卡片-1</span>
-              <span class="layer-tag">group</span>
-            </div>
-          </el-scrollbar>
-
-          <div v-show="isPanelOpen && activePanel === 'search'" class="search-pane">
-            <div class="search-title">搜索（占位）</div>
-            <div class="search-input">输入图层名进行过滤...</div>
-            <div class="search-hint">当前版本仅展示 Activity Bar 分页切换效果。</div>
-          </div>
-
-          <div v-show="isPanelOpen" class="resize-handle" @mousedown="startResize"></div>
-        </aside>
-      </div>
-
-      <!-- 中间画布 -->
-      <section class="canvas-area">
-        <div class="canvas-ruler-x">
-          <span v-for="n in 10" :key="n" class="ruler-mark">{{ (n - 1) * 400 }}</span>
-        </div>
-        <div class="canvas-scroll">
-          <div class="canvas-stage">
-            <div class="mock-bg"></div>
-            <div class="hotspot hs-active" style="left:80px;top:30px;width:320px;height:60px">
-              <div class="hs-tooltip">
-                <div class="hs-name">Header</div>
-                <div class="hs-geo">320 × 60 · (80, 30)</div>
-              </div>
-            </div>
-            <div class="hotspot" style="left:80px;top:120px;width:180px;height:130px"></div>
-            <div class="hotspot" style="left:280px;top:120px;width:180px;height:130px"></div>
-            <div class="hotspot" style="left:80px;top:280px;width:380px;height:80px"></div>
-          </div>
-        </div>
-        <div class="canvas-status">
-          <span>3840 × 1080 px</span>
-          <span class="st-sep">·</span>
-          <span>缩放 25%</span>
-          <span class="st-sep">·</span>
-          <span>已选中 Header</span>
-        </div>
-      </section>
-
-      <!-- 右侧活动栏（默认收起） -->
-      <div class="right-panel-shell">
-        <aside class="right-panel" :class="{ 'is-collapsed': !isRightPanelOpen, 'is-resizing': isRightResizing }"
-          :style="rightPanelStyle">
-          <div v-show="isRightPanelOpen" class="panel-head">
-            <span>{{ rightActivePanel === 'properties' ? '属性' : '检查' }}</span>
-          </div>
-
-          <div v-show="isRightPanelOpen && rightActivePanel === 'properties'" class="right-panel-content">
-            <div class="prop-section">
-              <div class="prop-label">基础</div>
-              <div class="prop-row"><span class="pk">名称</span><span class="pv">Header</span></div>
-              <div class="prop-row"><span class="pk">类型</span><span class="pv pv-tag">group</span></div>
-            </div>
-            <div class="prop-section">
-              <div class="prop-label">几何</div>
-              <div class="prop-grid">
-                <div class="prop-cell"><span class="pk">X</span><span class="pv">80</span></div>
-                <div class="prop-cell"><span class="pk">Y</span><span class="pv">30</span></div>
-                <div class="prop-cell"><span class="pk">W</span><span class="pv">320</span></div>
-                <div class="prop-cell"><span class="pk">H</span><span class="pv">60</span></div>
-              </div>
-            </div>
-            <div class="prop-section">
-              <div class="prop-label">样式</div>
-              <div class="prop-row"><span class="pk">填充</span><span class="pv"><span class="swatch"
-                    style="background:#1a2a4a"></span>#1a2a4a</span></div>
-              <div class="prop-row"><span class="pk">透明度</span><span class="pv">100%</span></div>
-            </div>
-            <el-button class="copy-btn" plain>复制 JSON</el-button>
-          </div>
-
-          <div v-show="isRightPanelOpen && rightActivePanel === 'inspect'" class="inspect-pane">
-            <div class="inspect-title">检查（占位）</div>
-            <div class="inspect-card">用于显示选中节点的结构与引用信息。</div>
-            <div class="inspect-hint">当前版本仅展示右侧活动栏切换与收起交互。</div>
-          </div>
-
-          <div v-show="isRightPanelOpen" class="right-resize-handle" @mousedown="startRightResize"></div>
-        </aside>
-
-        <aside class="right-activity-bar">
-          <button v-for="item in rightPanels" :key="item.id" class="ab-btn"
-            :class="{ active: rightActivePanel === item.id }" :title="item.label"
-            @click="handleRightPanelToggle(item.id)">
-            <svg v-if="item.id === 'properties'" class="ab-icon" viewBox="0 0 16 16" fill="none">
-              <rect x="2.5" y="2.5" width="11" height="11" stroke="currentColor" stroke-width="1.2" />
-              <path d="M5 6.5H11M5 9H11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-            </svg>
-            <svg v-else class="ab-icon" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.2" />
-              <path d="M8 7.2V11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-              <circle cx="8" cy="4.9" r="0.8" fill="currentColor" />
+          <button class="hd-action" type="button" title="最大化" aria-label="最大化">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4" />
             </svg>
           </button>
-        </aside>
+          <button class="hd-action" type="button" :title="theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'"
+            :aria-label="theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'" @click="toggleTheme">
+            <!-- 太阳图标（暗色时显示，提示可切换到亮色） -->
+            <svg v-if="theme === 'dark'" width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4" />
+              <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M11.5 3.1l-1.4 1.4M4.5 11.5l-1.4 1.4"
+                stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+            <!-- 月亮图标（亮色时显示，提示可切换到暗色） -->
+            <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M13 10a5 5 0 01-7-7 6 6 0 107 7z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button class="hd-action hd-action-emphasis" type="button" title="导出 JSON" aria-label="导出 JSON">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2.5V10.5M8 10.5L5.5 8M8 10.5L10.5 8" stroke="currentColor" stroke-width="1.4"
+                stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M3 12.5H13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ── 主体三栏 ── -->
+      <div class="wb-body">
+        <!-- 左侧活动栏 -->
+        <div class="activity-shell">
+          <aside class="activity-bar">
+            <button v-for="item in panels" :key="item.id" class="ab-btn" :class="{ active: activePanel === item.id }"
+              :title="item.label" @click="handlePanelToggle(item.id)">
+              <svg v-if="item.id === 'layers'" class="ab-icon" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
+                <rect x="9" y="2" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
+                <rect x="2" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
+                <rect x="9" y="9" width="5" height="5" stroke="currentColor" stroke-width="1.2" />
+              </svg>
+              <svg v-else class="ab-icon" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2" />
+                <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+            </button>
+          </aside>
+
+          <aside class="activity-panel" :class="{ 'is-collapsed': !isPanelOpen, 'is-resizing': isResizing }"
+            :style="panelStyle">
+            <div v-show="isPanelOpen" class="panel-head">
+              <span>图层</span>
+              <span class="panel-count">{{ flatCount }}</span>
+            </div>
+
+            <!-- 搜索输入框 -->
+            <LayerSearch v-show="isPanelOpen" />
+
+            <!-- 过滤隐藏图层开关 -->
+            <label v-show="isPanelOpen" class="filter-hidden-toggle">
+              <input
+                type="checkbox"
+                :checked="store.filterHiddenLayers"
+                @change="store.toggleFilterHiddenLayers()"
+              />
+              <span>过滤隐藏图层</span>
+            </label>
+
+            <el-scrollbar v-show="isPanelOpen && !store.searchQuery" class="layer-list">
+              <template v-if="store.filteredLayers.length > 0">
+                <LayerItem
+                  v-for="layer in store.filteredLayers"
+                  :key="layer.id"
+                  :layer="layer"
+                />
+              </template>
+              <div v-else class="layer-empty">暂无图层</div>
+            </el-scrollbar>
+
+            <LayerSearchResults v-show="isPanelOpen && store.searchQuery" />
+
+            <div v-show="isPanelOpen" class="resize-handle" @mousedown="startResize"></div>
+          </aside>
+        </div>
+
+        <!-- 中间画布 -->
+        <section class="canvas-area">
+          <div class="canvas-ruler-x">
+            <span v-for="n in 10" :key="n" class="ruler-mark">{{ (n - 1) * 400 }}</span>
+          </div>
+          <div class="canvas-scroll">
+            <div
+              class="canvas-stage"
+              :style="{ width: store.psd.width + 'px', height: store.psd.height + 'px' }"
+            >
+              <!-- 背景图 -->
+              <img
+                v-if="store.backgroundUrl"
+                :src="store.backgroundUrl"
+                class="canvas-bg-img"
+                alt=""
+                draggable="false"
+              />
+              <!-- 无背景图时的占位背景由 CSS 提供 -->
+              <!-- 热区渲染层 -->
+              <HotspotLayer :layers="store.layers" />
+            </div>
+          </div>
+          <div class="canvas-status">
+            <span>{{ store.psd.width }} × {{ store.psd.height }} px</span>
+            <span class="st-sep">·</span>
+            <span>{{ store.selectedLayer ? `已选中 ${store.selectedLayer.name}` : '未选中' }}</span>
+          </div>
+        </section>
+
+        <!-- 右侧活动栏（默认收起） -->
+        <div class="right-panel-shell">
+          <aside class="right-panel" :class="{ 'is-collapsed': !isRightPanelOpen, 'is-resizing': isRightResizing }"
+            :style="rightPanelStyle">
+            <div v-show="isRightPanelOpen" class="panel-head">
+              <span>{{ rightActivePanel === 'properties' ? '属性' : '检查' }}</span>
+            </div>
+
+            <div v-show="isRightPanelOpen && rightActivePanel === 'properties'" class="right-panel-content">
+              <!-- 无选中图层 -->
+              <div v-if="!store.selectedLayer" class="prop-empty">
+                请选择图层
+              </div>
+
+              <!-- 有选中图层 -->
+              <template v-else>
+                <div class="prop-section">
+                  <div class="prop-label">基础</div>
+                  <div class="prop-row">
+                    <span class="pk">名称</span>
+                    <span class="pv pv-copy" @click="copyValue('name', store.selectedLayer.name)">
+                      {{ copiedKey === 'name' ? '已复制' : store.selectedLayer.name }}
+                    </span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">类型</span>
+                    <span class="pv pv-tag">{{ store.selectedLayer.type }}</span>
+                  </div>
+                </div>
+                <div class="prop-section">
+                  <div class="prop-label">几何</div>
+                  <div class="prop-grid">
+                    <div class="prop-cell" @click="copyValue('x', store.selectedLayer.x)">
+                      <span class="pk">X</span>
+                      <span class="pv">{{ copiedKey === 'x' ? '✓' : store.selectedLayer.x }}</span>
+                    </div>
+                    <div class="prop-cell" @click="copyValue('y', store.selectedLayer.y)">
+                      <span class="pk">Y</span>
+                      <span class="pv">{{ copiedKey === 'y' ? '✓' : store.selectedLayer.y }}</span>
+                    </div>
+                    <div class="prop-cell" @click="copyValue('w', store.selectedLayer.width)">
+                      <span class="pk">W</span>
+                      <span class="pv">{{ copiedKey === 'w' ? '✓' : store.selectedLayer.width }}</span>
+                    </div>
+                    <div class="prop-cell" @click="copyValue('h', store.selectedLayer.height)">
+                      <span class="pk">H</span>
+                      <span class="pv">{{ copiedKey === 'h' ? '✓' : store.selectedLayer.height }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 图片图层附加属性 -->
+                <div
+                  v-if="store.selectedLayer.type === 'image'"
+                  class="prop-section"
+                >
+                  <div class="prop-label">图片缩略图</div>
+                  <div class="thumb-meta-row">
+                    <span class="pk">尺寸</span>
+                    <span class="pv">{{ store.selectedLayer.width }} × {{ store.selectedLayer.height }}</span>
+                  </div>
+
+                  <button
+                    v-if="selectedImagePreviewUrl && !thumbLoadFailed"
+                    class="thumb-box"
+                    type="button"
+                    @click="openImagePreview"
+                    title="点击查看大图"
+                  >
+                    <img
+                      class="thumb-img"
+                      :src="selectedImagePreviewUrl"
+                      :alt="store.selectedLayer.name"
+                      @error="onThumbLoadError"
+                    />
+                    <span class="thumb-tip">点击预览</span>
+                  </button>
+
+                  <div v-else class="thumb-placeholder">
+                    <span class="thumb-ph-title">暂无可用预览</span>
+                    <span class="thumb-ph-desc">该图层缺少预览资源或加载失败</span>
+                  </div>
+                </div>
+
+                <!-- 文本图层附加属性 -->
+                <div
+                  v-if="store.selectedLayer.type === 'text'"
+                  class="prop-section"
+                >
+                  <div class="prop-label">文本样式</div>
+                  <div class="prop-row">
+                    <span class="pk">字体</span>
+                    <span class="pv pv-copy" @click="copyValue('font', selectedTextStyle.fontFamily)">
+                      {{ copiedKey === 'font' ? '已复制' : selectedTextStyle.fontFamily }}
+                    </span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">字号</span>
+                    <span class="pv pv-copy" @click="copyValue('size', selectedTextStyle.fontSize)">
+                      {{ copiedKey === 'size' ? '已复制' : selectedTextStyle.fontSize }}
+                    </span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">颜色</span>
+                    <span class="pv pv-copy" @click="copyValue('color', selectedTextStyle.color)">
+                      <span v-if="selectedTextStyle.color !== '--'" class="swatch" :style="{ background: selectedTextStyle.color }"></span>
+                      {{ copiedKey === 'color' ? '已复制' : selectedTextStyle.color }}
+                    </span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div v-show="isRightPanelOpen && rightActivePanel === 'inspect'" class="inspect-pane">
+              <div class="inspect-title">检查（占位）</div>
+              <div class="inspect-card">用于显示选中节点的结构与引用信息。</div>
+              <div class="inspect-hint">当前版本仅展示右侧活动栏切换与收起交互。</div>
+            </div>
+
+            <div v-show="isRightPanelOpen" class="right-resize-handle" @mousedown="startRightResize"></div>
+          </aside>
+
+          <aside class="right-activity-bar">
+            <button v-for="item in rightPanels" :key="item.id" class="ab-btn"
+              :class="{ active: rightActivePanel === item.id }" :title="item.label"
+              @click="handleRightPanelToggle(item.id)">
+              <svg v-if="item.id === 'properties'" class="ab-icon" viewBox="0 0 16 16" fill="none">
+                <rect x="2.5" y="2.5" width="11" height="11" stroke="currentColor" stroke-width="1.2" />
+                <path d="M5 6.5H11M5 9H11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+              <svg v-else class="ab-icon" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.2" />
+                <path d="M8 7.2V11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                <circle cx="8" cy="4.9" r="0.8" fill="currentColor" />
+              </svg>
+            </button>
+          </aside>
+        </div>
+      </div>
+    </template>
+
+    <div v-if="previewDialogVisible" class="img-preview-mask" @click="closeImagePreview">
+      <div class="img-preview-dialog" @click.stop>
+        <button class="img-preview-close" type="button" @click="closeImagePreview" aria-label="关闭预览">×</button>
+        <img
+          v-if="selectedImagePreviewUrl"
+          class="img-preview-full"
+          :src="selectedImagePreviewUrl"
+          :alt="store.selectedLayer?.name || 'image preview'"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref } from 'vue'
-import { ElButton, ElScrollbar } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElButton, ElScrollbar, ElMessage } from 'element-plus'
+import { useMainStore } from '../store'
 import { useTheme } from '../composables/useTheme'
+import LayerItem from '../components/LayerItem.vue'
+import HotspotLayer from '../components/HotspotLayer.vue'
+import LayerSearch from '../components/LayerSearch.vue'
+import LayerSearchResults from '../components/LayerSearchResults.vue'
 
+const router = useRouter()
+const store = useMainStore()
 const { theme, toggleTheme } = useTheme()
+
+// 检查数据完整性
+onMounted(() => {
+  // 如果 psd 为空且不在加载中，说明数据丢失（如直接访问或刷新）
+  if (!store.psd && !store.isLoading) {
+    ElMessage.warning('数据已失效，请重新上传')
+    router.push('/')
+  }
+})
+
+// 返回上传页
+function goBack() {
+  router.push('/')
+}
+
+// 递归计算总图层数（含子节点）
+function countLayers(layers) {
+  let count = 0
+  for (const layer of layers) {
+    count++
+    if (layer.children) count += countLayers(layer.children)
+  }
+  return count
+}
+const flatCount = computed(() => countLayers(store.filteredLayers))
+const selectedImagePreviewUrl = computed(() => {
+  const layer = store.selectedLayer
+  if (!layer || layer.type !== 'image') return ''
+  return layer.imagePreviewUrl || ''
+})
+const selectedTextStyle = computed(() => {
+  const layer = store.selectedLayer
+  if (!layer || layer.type !== 'text') {
+    return {
+      fontFamily: '--',
+      fontSize: '--',
+      color: '--'
+    }
+  }
+
+  const style = layer.style && typeof layer.style === 'object' ? layer.style : {}
+  return {
+    fontFamily: toDisplayValue(style.fontFamily),
+    fontSize: toDisplayValue(style.fontSize),
+    color: toDisplayValue(normalizeColorValue(style.color))
+  }
+})
+
+// 复制属性值到剪贴板
+const copiedKey = ref(null)
+const thumbLoadFailed = ref(false)
+const previewDialogVisible = ref(false)
+
+watch(() => store.selectedLayerId, () => {
+  thumbLoadFailed.value = false
+  previewDialogVisible.value = false
+})
+
+async function copyValue(key, value) {
+  if (value === '--' || value === '' || value === null || value === undefined) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(String(value))
+    copiedKey.value = key
+    setTimeout(() => { copiedKey.value = null }, 1200)
+  } catch {
+    // 忽略复制失败
+  }
+}
+
+function onThumbLoadError() {
+  thumbLoadFailed.value = true
+}
+
+function openImagePreview() {
+  if (!selectedImagePreviewUrl.value || thumbLoadFailed.value) {
+    return
+  }
+  previewDialogVisible.value = true
+}
+
+function closeImagePreview() {
+  previewDialogVisible.value = false
+}
+
+function toDisplayValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return '--'
+  }
+  return String(value)
+}
+
+function normalizeColorValue(color) {
+  if (!color) return ''
+  if (typeof color === 'string') return color
+  if (Array.isArray(color) && color.length >= 3) {
+    const [r, g, b, a] = color
+    return a === undefined ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a})`
+  }
+  if (typeof color === 'object' && color !== null) {
+    const { r, g, b, a } = color
+    if (r !== undefined && g !== undefined && b !== undefined) {
+      return a === undefined ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a})`
+    }
+  }
+  return color
+}
 
 const MIN_PANEL_WIDTH = 160
 const MAX_PANEL_WIDTH = 400
@@ -582,6 +765,25 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
+.filter-hidden-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.filter-hidden-toggle input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--color-accent, #4f8ef7);
+  cursor: pointer;
+}
+
 .layer-list {
   flex: 1;
   overflow: hidden;
@@ -731,14 +933,7 @@ onUnmounted(() => {
 
 .canvas-stage {
   position: relative;
-  width: 960px;
-  height: 270px;
   flex-shrink: 0;
-}
-
-.mock-bg {
-  position: absolute;
-  inset: 0;
   background: linear-gradient(135deg, #0a1628 0%, #07111e 100%);
   border: 1px solid rgba(0, 212, 255, 0.1);
   background-image:
@@ -747,10 +942,20 @@ onUnmounted(() => {
   background-size: 20px 20px;
 }
 
+.canvas-bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  object-fit: fill;
+  display: block;
+}
+
 .hotspot {
   position: absolute;
   border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-hover);
+  background: transparent;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -758,7 +963,7 @@ onUnmounted(() => {
 .hotspot:hover,
 .hotspot.hs-active {
   border-color: var(--color-accent);
-  background: var(--color-bg-active);
+  background: rgba(0, 212, 255, 0.05);
 }
 
 .hs-tooltip {
@@ -771,6 +976,7 @@ onUnmounted(() => {
   border-radius: 2px;
   white-space: nowrap;
   pointer-events: none;
+  z-index: 10;
 }
 
 .hs-name {
@@ -782,6 +988,13 @@ onUnmounted(() => {
   font-size: 10px;
   color: var(--color-text-secondary);
   margin-top: 2px;
+}
+
+.layer-empty {
+  padding: 20px 14px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
 .canvas-status {
@@ -938,16 +1151,6 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.prop-cell {
-  background: var(--color-bg-canvas);
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
-  padding: 4px 8px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-}
-
 .swatch {
   display: inline-block;
   width: 12px;
@@ -970,5 +1173,214 @@ onUnmounted(() => {
   font-family: inherit;
   letter-spacing: 0.05em;
   border-radius: 2px;
+}
+
+.prop-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.pv-copy {
+  cursor: pointer;
+  transition: color 0.15s;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-copy:hover {
+  color: var(--color-accent);
+}
+
+.prop-cell {
+  background: var(--color-bg-canvas);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.prop-cell:hover {
+  border-color: var(--color-border-strong);
+}
+
+.thumb-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.thumb-box {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: var(--color-bg-canvas);
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.thumb-box:hover {
+  border-color: var(--color-border-strong);
+}
+
+.thumb-img {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.thumb-tip {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.thumb-placeholder {
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 2px;
+  padding: 14px 10px;
+  text-align: center;
+  background: var(--color-bg-canvas);
+}
+
+.thumb-ph-title {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.thumb-ph-desc {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.img-preview-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.img-preview-dialog {
+  width: min(860px, 100%);
+  max-height: 100%;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  position: relative;
+  padding: 16px;
+}
+
+.img-preview-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.img-preview-full {
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  object-fit: contain;
+  display: block;
+}
+
+/* Loading & Error Overlays */
+.loading-overlay,
+.error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-base);
+  z-index: 100;
+}
+
+.loading-container,
+.error-container {
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 3px solid var(--color-bg-hover);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin: 0 0 24px 0;
+}
+
+.loading-back-btn {
+  margin-top: 16px;
+  --el-button-bg-color: var(--color-bg-active);
+  --el-button-border-color: var(--color-border-strong);
+  --el-button-text-color: var(--color-accent);
+  --el-button-hover-bg-color: var(--color-bg-hover);
+  --el-button-hover-border-color: var(--color-accent);
+  --el-button-hover-text-color: var(--color-accent);
+}
+
+.error-container h2 {
+  font-size: 16px;
+  color: var(--color-text-primary);
+  margin: 0 0 12px 0;
+}
+
+.error-container p {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 20px 0;
+  max-width: 400px;
+}
+
+.error-container :deep(.el-button) {
+  --el-button-bg-color: var(--color-accent);
+  --el-button-border-color: var(--color-accent);
+  --el-button-text-color: var(--color-bg-base);
+  --el-button-hover-bg-color: rgb(102, 204, 255);
+  --el-button-hover-border-color: rgb(102, 204, 255);
 }
 </style>

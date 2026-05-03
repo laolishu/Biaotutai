@@ -126,3 +126,7 @@ Issues and pull requests are welcome.
 
 If you are proposing product-level behavior changes, please create or update an OpenSpec change under openspec/changes first.
 
+## License
+
+This project is open sourced under the MIT License. See [LICENSE](LICENSE).
+

@@ -27,7 +27,7 @@
     <!-- 中心卡片 -->
     <main class="card-wrap">
       <div class="upload-card" :class="{ 'drag-over': isDragging }" @dragover.prevent="isDragging = true"
-        @dragleave.prevent="isDragging = false" @drop.prevent="isDragging = false">
+        @dragleave.prevent="isDragging = false" @drop.prevent="handleFileDrop">
         <!-- 四角装饰 -->
         <span class="corner tl"></span>
         <span class="corner tr"></span>
@@ -48,9 +48,10 @@
           <h1 class="card-title">拖拽或点击上传设计稿</h1>
           <p class="card-desc">支持 PSD / PNG / JPG · 自动解析图层结构</p>
 
-          <label class="upload-btn">
-            <input type="file" accept=".psd,.png,.jpg,.jpeg" hidden />
-            选择文件
+          <label class="upload-btn" :class="{ disabled: isProcessing }">
+            <input ref="inputRef" type="file" accept=".psd,.png,.jpg,.jpeg" hidden @change="handleFileSelect"
+              :disabled="isProcessing" />
+            {{ isProcessing ? '处理中...' : '选择文件' }}
           </label>
 
           <div class="format-tags">
@@ -76,10 +77,83 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useMainStore } from '../store'
+import { ElMessage } from 'element-plus'
 import { useTheme } from '../composables/useTheme'
+
+const router = useRouter()
+const store = useMainStore()
 const isDragging = ref(false)
 const { theme, toggleTheme } = useTheme()
+
+const inputRef = ref(null)
+const isProcessing = computed(() => store.isLoading)
+
+// 处理文件选择
+async function handleFileSelect(event) {
+  const files = event.target?.files || []
+  if (files.length > 0) {
+    await handleFileUpload(files[0])
+  }
+  // 重置 input 以便重新选择相同文件
+  if (inputRef.value) {
+    inputRef.value.value = ''
+  }
+}
+
+// 处理拖拽上传
+async function handleFileDrop(event) {
+  isDragging.value = false
+  const files = event.dataTransfer?.files || []
+  if (files.length > 0) {
+    await handleFileUpload(files[0])
+  }
+}
+
+// 统一的文件上传处理
+async function handleFileUpload(file) {
+  // 验证文件格式
+  const validTypes = ['.psd', '.png', '.jpg', '.jpeg']
+  const ext = '.' + file.name.split('.').pop().toLowerCase()
+  if (!validTypes.includes(ext)) {
+    ElMessage.error('仅支持 PSD / PNG / JPG 格式')
+    return
+  }
+
+  // 验证文件大小（100MB 以内）
+  if (file.size > 100 * 1024 * 1024) {
+    ElMessage.error('文件大小不超过 100MB')
+    return
+  }
+
+  try {
+    // 调用 store 的 parsePsd 方法
+    await store.parsePsd(file)
+
+    // 如果解析成功，跳转到工作台
+    if (store.psd && store.layers.length > 0) {
+      ElMessage.success('解析成功，正在进入工作台...')
+      router.push('/workbench')
+    } else if (store.error) {
+      // 显示更详细的错误提示，持续时间更长
+      ElMessage({
+        message: store.error,
+        type: 'error',
+        duration: 5000,
+        showClose: true
+      })
+    }
+  } catch (err) {
+    ElMessage({
+      message: `上传失败: ${err.message}`,
+      type: 'error',
+      duration: 5000,
+      showClose: true
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -294,6 +368,16 @@ const { theme, toggleTheme } = useTheme()
 .upload-btn:hover {
   background: var(--color-bg-active);
   border-color: var(--color-accent);
+}
+
+.upload-btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-btn.disabled:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
 }
 
 /* 格式标签 */

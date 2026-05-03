@@ -125,3 +125,7 @@ biaotutai/
 欢迎提交 Issue 和 Pull Request。
 
 如果要变更产品级行为，请先在 openspec/changes 下创建或更新对应 OpenSpec 变更。
+
+## 开源协议
+
+本项目采用 MIT 协议开源，详见 [LICENSE](LICENSE)。
