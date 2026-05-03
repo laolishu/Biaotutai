@@ -1,0 +1,50 @@
+/* ── 默认 fallback（JS 初始化前防止主题闪烁）──────────── */
+:root {
+  --color-bg-base:        #0a0f1a;
+  --color-bg-panel:       #0d1525;
+  --color-bg-canvas:      #060b12;
+  --color-bg-hover:       rgba(0, 212, 255, 0.06);
+  --color-bg-active:      rgba(0, 212, 255, 0.12);
+  --color-border:         rgba(0, 212, 255, 0.08);
+  --color-border-strong:  rgba(0, 212, 255, 0.25);
+  --color-accent:         #00d4ff;
+  --color-accent-glow:    rgba(0, 212, 255, 0.4);
+  --color-text-primary:   #c8d8f0;
+  --color-text-secondary: #6b8aad;
+  --color-text-muted:     #3a5a7a;
+  --color-text-accent:    #00d4ff;
+}
+
+/* ── Dark Theme（赛博朋克风格，默认）──────────────────────── */
+:root[data-theme="dark"] {
+  --color-bg-base:        #0a0f1a;
+  --color-bg-panel:       #0d1525;
+  --color-bg-canvas:      #060b12;
+  --color-bg-hover:       rgba(0, 212, 255, 0.06);
+  --color-bg-active:      rgba(0, 212, 255, 0.12);
+  --color-border:         rgba(0, 212, 255, 0.08);
+  --color-border-strong:  rgba(0, 212, 255, 0.25);
+  --color-accent:         #00d4ff;
+  --color-accent-glow:    rgba(0, 212, 255, 0.4);
+  --color-text-primary:   #c8d8f0;
+  --color-text-secondary: #6b8aad;
+  --color-text-muted:     #3a5a7a;
+  --color-text-accent:    #00d4ff;
+}
+
+/* ── Light Theme（仿 VS Code Light 风格）────────────────── */
+:root[data-theme="light"] {
+  --color-bg-base:        #f3f3f3;
+  --color-bg-panel:       #ffffff;
+  --color-bg-canvas:      #e7e7e7;
+  --color-bg-hover:       rgba(0, 120, 212, 0.1);
+  --color-bg-active:      rgba(0, 120, 212, 0.16);
+  --color-border:         rgba(0, 0, 0, 0.16);
+  --color-border-strong:  rgba(0, 0, 0, 0.28);
+  --color-accent:         #0078d4;
+  --color-accent-glow:    rgba(0, 120, 212, 0.22);
+  --color-text-primary:   #1f2328;
+  --color-text-secondary: #4b5560;
+  --color-text-muted:     #6f7780;
+  --color-text-accent:    #0078d4;
+}
