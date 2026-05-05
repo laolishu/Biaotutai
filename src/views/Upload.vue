@@ -59,6 +59,11 @@
             <span class="tag">.png</span>
             <span class="tag">.jpg</span>
           </div>
+
+          <label class="skip-hidden-label">
+            <input type="checkbox" v-model="skipHiddenLayers" :disabled="isProcessing" />
+            导入时忽略隐藏图层
+          </label>
         </div>
       </div>
 
@@ -90,6 +95,7 @@ const { theme, toggleTheme } = useTheme()
 
 const inputRef = ref(null)
 const isProcessing = computed(() => store.isLoading)
+const skipHiddenLayers = ref(true)
 
 // 处理文件选择
 async function handleFileSelect(event) {
@@ -130,7 +136,7 @@ async function handleFileUpload(file) {
 
   try {
     // 调用 store 的 parsePsd 方法
-    await store.parsePsd(file)
+    await store.parsePsd(file, { skipHiddenLayers: skipHiddenLayers.value })
 
     // 如果解析成功，跳转到工作台
     if (store.psd && store.layers.length > 0) {
@@ -393,6 +399,21 @@ async function handleFileUpload(file) {
   font-size: 11px;
   color: var(--color-text-muted);
   letter-spacing: 0.08em;
+}
+
+.skip-hidden-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-top: 4px;
+}
+.skip-hidden-label input[type='checkbox'] {
+  accent-color: var(--color-accent, #4f8ef7);
+  cursor: pointer;
 }
 
 /* ── 流程提示 ── */

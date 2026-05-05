@@ -1,7 +1,7 @@
 <template>
   <template v-for="layer in layers" :key="layer.id">
     <!-- group 类型：不渲染自身热区，递归渲染子图层 -->
-    <template v-if="layer.type === 'group'">
+    <template v-if="layer.type === 'group' && !layer.hidden">
       <HotspotLayer
         v-if="layer.children && layer.children.length"
         :layers="layer.children"
@@ -10,7 +10,7 @@
 
     <!-- 非 group 类型：渲染热区 -->
     <div
-      v-else
+      v-else-if="!layer.hidden"
       class="hotspot"
       :class="{ 'hs-active': store.selectedLayerId === layer.id }"
       :style="{

@@ -63,7 +63,7 @@
                 stroke-linejoin="round" />
             </svg>
           </button>
-          <button class="hd-action hd-action-emphasis" type="button" title="导出 JSON" aria-label="导出 JSON">
+          <button class="hd-action hd-action-emphasis" type="button" title="导出 JSON" aria-label="导出 JSON" @click="exportJson">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 2.5V10.5M8 10.5L5.5 8M8 10.5L10.5 8" stroke="currentColor" stroke-width="1.4"
                 stroke-linecap="round" stroke-linejoin="round" />
@@ -140,16 +140,14 @@
               class="canvas-stage"
               :style="{ width: store.psd.width + 'px', height: store.psd.height + 'px' }"
             >
-              <!-- 背景图 -->
               <img
-                v-if="store.backgroundUrl"
-                :src="store.backgroundUrl"
+                v-show="store.canvasRenderMode === 'composite'"
                 class="canvas-bg-img"
-                alt=""
-                draggable="false"
+                :src="store.backgroundUrl"
               />
-              <!-- 无背景图时的占位背景由 CSS 提供 -->
-              <!-- 热区渲染层 -->
+              <div v-show="store.canvasRenderMode === 'layered'" class="canvas-layer-wrap">
+                <CanvasLayer :layers="store.layers" />
+              </div>
               <HotspotLayer :layers="store.layers" />
             </div>
           </div>
@@ -157,6 +155,18 @@
             <span>{{ store.psd.width }} × {{ store.psd.height }} px</span>
             <span class="st-sep">·</span>
             <span>{{ store.selectedLayer ? `已选中 ${store.selectedLayer.name}` : '未选中' }}</span>
+            <template v-if="store.layers.length > 0">
+              <span class="st-sep">·</span>
+              <label class="st-mode-label">渲染</label>
+              <select
+                class="st-mode-select"
+                :value="store.canvasRenderMode"
+                @change="store.setCanvasRenderMode($event.target.value)"
+              >
+                <option value="layered">逐层渲染</option>
+                <option value="composite">合成图</option>
+              </select>
+            </template>
           </div>
         </section>
 
@@ -270,6 +280,51 @@
                     </span>
                   </div>
                 </div>
+
+                <div
+                  v-if="store.selectedLayer.type === 'shape'"
+                  class="prop-section"
+                >
+                  <div class="prop-label">形状信息</div>
+                  <div class="prop-row">
+                    <span class="pk">shapeType</span>
+                    <span class="pv pv-tag">{{ selectedShapeMeta.shapeType }}</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">填充</span>
+                    <span class="pv pv-copy" @click="copyValue('shape-fill', selectedShapeMeta.fill)">
+                      <span v-if="selectedShapeMeta.fill !== '--'" class="swatch" :style="{ background: selectedShapeMeta.fill }"></span>
+                      {{ copiedKey === 'shape-fill' ? '已复制' : selectedShapeMeta.fill }}
+                    </span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">圆角</span>
+                    <span class="pv pv-copy" @click="copyValue('shape-radius', selectedShapeMeta.cornerRadius)">
+                      {{ copiedKey === 'shape-radius' ? '已复制' : selectedShapeMeta.cornerRadius }}
+                    </span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">边框</span>
+                    <span class="pv pv-copy" @click="copyValue('shape-stroke', selectedShapeMeta.stroke)">
+                      {{ copiedKey === 'shape-stroke' ? '已复制' : selectedShapeMeta.stroke }}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  v-if="store.selectedLayer.degraded"
+                  class="prop-section"
+                >
+                  <div class="prop-label">降级状态</div>
+                  <div class="prop-row">
+                    <span class="pk">状态</span>
+                    <span class="pv pv-tag">degraded</span>
+                  </div>
+                  <div class="prop-row">
+                    <span class="pk">原因</span>
+                    <span class="pv">{{ store.selectedLayer.degradeReason || 'complex-path' }}</span>
+                  </div>
+                </div>
               </template>
             </div>
 
@@ -320,8 +375,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElButton, ElScrollbar, ElMessage } from 'element-plus'
 import { useMainStore } from '../store'
+import { zipSync, strToU8 } from 'fflate'
 import { useTheme } from '../composables/useTheme'
 import LayerItem from '../components/LayerItem.vue'
+import CanvasLayer from '../components/CanvasLayer.vue'
 import HotspotLayer from '../components/HotspotLayer.vue'
 import LayerSearch from '../components/LayerSearch.vue'
 import LayerSearchResults from '../components/LayerSearchResults.vue'
@@ -377,6 +434,34 @@ const selectedTextStyle = computed(() => {
   }
 })
 
+const selectedShapeMeta = computed(() => {
+  const layer = store.selectedLayer
+  if (!layer || layer.type !== 'shape') {
+    return {
+      shapeType: '--',
+      fill: '--',
+      cornerRadius: '--',
+      stroke: '--'
+    }
+  }
+
+  const shapeProps = layer.shapeProps || {}
+  const strokeText = shapeProps.stroke
+    ? `${shapeProps.stroke.color || '--'} / ${shapeProps.stroke.width ?? 0}px`
+    : '--'
+
+  return {
+    shapeType: layer.shapeType || 'rect',
+    fill: toDisplayValue(normalizeColorValue(shapeProps.fill)),
+    cornerRadius: toDisplayValue(
+      typeof shapeProps.cornerRadius === 'object'
+        ? JSON.stringify(shapeProps.cornerRadius)
+        : shapeProps.cornerRadius
+    ),
+    stroke: strokeText
+  }
+})
+
 // 复制属性值到剪贴板
 const copiedKey = ref(null)
 const thumbLoadFailed = ref(false)
@@ -414,6 +499,67 @@ function openImagePreview() {
 
 function closeImagePreview() {
   previewDialogVisible.value = false
+}
+
+function exportJson() {
+  try {
+    const payload = store.exportProjectJson()
+    const baseName = (store.fileName || 'project').replace(/\.[^.]+$/, '')
+
+    // 收集 assets 图像文件并从 payload 中剥离 base64 data
+    const zipFiles = {}
+    for (const [assetId, meta] of Object.entries(payload.assets || {})) {
+      const dataUrl = store.layers
+        ? findAssetDataUrl(store.layers, assetId, payload)
+        : null
+      if (dataUrl && dataUrl.startsWith('data:')) {
+        const base64 = dataUrl.split(',')[1]
+        if (base64) {
+          const binary = atob(base64)
+          const bytes = new Uint8Array(binary.length)
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+          zipFiles[meta.path] = bytes
+        }
+      }
+    }
+
+    // project.json 不含 base64，assets 保留元数据路径引用
+    zipFiles['project.json'] = strToU8(JSON.stringify(payload, null, 2))
+
+    const zipped = zipSync(zipFiles, { level: 6 })
+    const blob = new Blob([zipped], { type: 'application/zip' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${baseName}.project.zip`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出 ZIP 成功')
+  } catch (error) {
+    ElMessage.error(`导出失败: ${error?.message || '未知错误'}`)
+  }
+}
+
+// 从图层树中按 assetId 反查 imagePreviewUrl
+function findAssetDataUrl(layers, assetId, payload) {
+  // payload.assets[assetId].originLayers 记录了来源图层 id
+  const meta = payload.assets[assetId]
+  if (!meta || !meta.originLayers || !meta.originLayers.length) return null
+  const layerId = meta.originLayers[0]
+  return findLayerPreviewUrl(layers, layerId)
+}
+
+function findLayerPreviewUrl(layers, id) {
+  for (const layer of layers) {
+    if (layer.id === id) return layer.imagePreviewUrl || null
+    if (layer.children) {
+      const found = findLayerPreviewUrl(layer.children, id)
+      if (found) return found
+    }
+  }
+  return null
 }
 
 function toDisplayValue(value) {
@@ -944,12 +1090,21 @@ onUnmounted(() => {
 
 .canvas-bg-img {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  object-fit: fill;
   display: block;
+  z-index: 0;
+}
+
+.canvas-layer-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
 }
 
 .hotspot {
@@ -958,6 +1113,7 @@ onUnmounted(() => {
   background: transparent;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+  z-index: 2;
 }
 
 .hotspot:hover,
@@ -1011,6 +1167,39 @@ onUnmounted(() => {
 
 .st-sep {
   color: var(--color-border);
+}
+
+.st-mode-label {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.st-mode-select {
+  background: var(--color-bg-base);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 3px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 1px 4px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='%2300d4ff' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+}
+
+.st-mode-select:hover {
+  border-color: rgba(0, 212, 255, 0.5);
+  color: #00d4ff;
+}
+
+.st-mode-select option {
+  background: #0a0f1a;
+  color: #b0c4d8;
 }
 
 .right-panel-shell {
