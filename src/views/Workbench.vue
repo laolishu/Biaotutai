@@ -63,7 +63,8 @@
                 stroke-linejoin="round" />
             </svg>
           </button>
-          <button class="hd-action hd-action-emphasis" type="button" title="导出 JSON" aria-label="导出 JSON" @click="exportJson">
+          <button class="hd-action hd-action-emphasis" type="button" title="导出 JSON" aria-label="导出 JSON"
+            @click="exportJson">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 2.5V10.5M8 10.5L5.5 8M8 10.5L10.5 8" stroke="currentColor" stroke-width="1.4"
                 stroke-linecap="round" stroke-linejoin="round" />
@@ -105,21 +106,13 @@
 
             <!-- 过滤隐藏图层开关 -->
             <label v-show="isPanelOpen" class="filter-hidden-toggle">
-              <input
-                type="checkbox"
-                :checked="store.filterHiddenLayers"
-                @change="store.toggleFilterHiddenLayers()"
-              />
+              <input type="checkbox" :checked="store.filterHiddenLayers" @change="store.toggleFilterHiddenLayers()" />
               <span>过滤隐藏图层</span>
             </label>
 
             <el-scrollbar v-show="isPanelOpen && !store.searchQuery" class="layer-list">
               <template v-if="store.filteredLayers.length > 0">
-                <LayerItem
-                  v-for="layer in store.filteredLayers"
-                  :key="layer.id"
-                  :layer="layer"
-                />
+                <LayerItem v-for="layer in store.filteredLayers" :key="layer.id" :layer="layer" />
               </template>
               <div v-else class="layer-empty">暂无图层</div>
             </el-scrollbar>
@@ -136,15 +129,8 @@
             <span v-for="n in 10" :key="n" class="ruler-mark">{{ (n - 1) * 400 }}</span>
           </div>
           <div class="canvas-scroll">
-            <div
-              class="canvas-stage"
-              :style="{ width: store.psd.width + 'px', height: store.psd.height + 'px' }"
-            >
-              <img
-                v-show="store.canvasRenderMode === 'composite'"
-                class="canvas-bg-img"
-                :src="store.backgroundUrl"
-              />
+            <div class="canvas-stage" :style="{ width: store.psd.width + 'px', height: store.psd.height + 'px' }">
+              <img v-show="store.canvasRenderMode === 'composite'" class="canvas-bg-img" :src="store.backgroundUrl" />
               <div v-show="store.canvasRenderMode === 'layered'" class="canvas-layer-wrap">
                 <CanvasLayer :layers="store.layers" />
               </div>
@@ -158,11 +144,8 @@
             <template v-if="store.layers.length > 0">
               <span class="st-sep">·</span>
               <label class="st-mode-label">渲染</label>
-              <select
-                class="st-mode-select"
-                :value="store.canvasRenderMode"
-                @change="store.setCanvasRenderMode($event.target.value)"
-              >
+              <select class="st-mode-select" :value="store.canvasRenderMode"
+                @change="store.setCanvasRenderMode($event.target.value)">
                 <option value="layered">逐层渲染</option>
                 <option value="composite">合成图</option>
               </select>
@@ -175,7 +158,9 @@
           <aside class="right-panel" :class="{ 'is-collapsed': !isRightPanelOpen, 'is-resizing': isRightResizing }"
             :style="rightPanelStyle">
             <div v-show="isRightPanelOpen" class="panel-head">
-              <span>{{ rightActivePanel === 'properties' ? '属性' : '检查' }}</span>
+              <span>
+                {{ rightActivePanel === 'properties' ? '属性' : (rightActivePanel === 'inspect' ? '检查' : '导出') }}
+              </span>
             </div>
 
             <div v-show="isRightPanelOpen && rightActivePanel === 'properties'" class="right-panel-content">
@@ -222,29 +207,17 @@
                 </div>
 
                 <!-- 图片图层附加属性 -->
-                <div
-                  v-if="store.selectedLayer.type === 'image'"
-                  class="prop-section"
-                >
+                <div v-if="store.selectedLayer.type === 'image'" class="prop-section">
                   <div class="prop-label">图片缩略图</div>
                   <div class="thumb-meta-row">
                     <span class="pk">尺寸</span>
                     <span class="pv">{{ store.selectedLayer.width }} × {{ store.selectedLayer.height }}</span>
                   </div>
 
-                  <button
-                    v-if="selectedImagePreviewUrl && !thumbLoadFailed"
-                    class="thumb-box"
-                    type="button"
-                    @click="openImagePreview"
-                    title="点击查看大图"
-                  >
-                    <img
-                      class="thumb-img"
-                      :src="selectedImagePreviewUrl"
-                      :alt="store.selectedLayer.name"
-                      @error="onThumbLoadError"
-                    />
+                  <button v-if="selectedImagePreviewUrl && !thumbLoadFailed" class="thumb-box" type="button"
+                    @click="openImagePreview" title="点击查看大图">
+                    <img class="thumb-img" :src="selectedImagePreviewUrl" :alt="store.selectedLayer.name"
+                      @error="onThumbLoadError" />
                     <span class="thumb-tip">点击预览</span>
                   </button>
 
@@ -255,10 +228,7 @@
                 </div>
 
                 <!-- 文本图层附加属性 -->
-                <div
-                  v-if="store.selectedLayer.type === 'text'"
-                  class="prop-section"
-                >
+                <div v-if="store.selectedLayer.type === 'text'" class="prop-section">
                   <div class="prop-label">文本样式</div>
                   <div class="prop-row">
                     <span class="pk">字体</span>
@@ -275,16 +245,14 @@
                   <div class="prop-row">
                     <span class="pk">颜色</span>
                     <span class="pv pv-copy" @click="copyValue('color', selectedTextStyle.color)">
-                      <span v-if="selectedTextStyle.color !== '--'" class="swatch" :style="{ background: selectedTextStyle.color }"></span>
+                      <span v-if="selectedTextStyle.color !== '--'" class="swatch"
+                        :style="{ background: selectedTextStyle.color }"></span>
                       {{ copiedKey === 'color' ? '已复制' : selectedTextStyle.color }}
                     </span>
                   </div>
                 </div>
 
-                <div
-                  v-if="store.selectedLayer.type === 'shape'"
-                  class="prop-section"
-                >
+                <div v-if="store.selectedLayer.type === 'shape'" class="prop-section">
                   <div class="prop-label">形状信息</div>
                   <div class="prop-row">
                     <span class="pk">shapeType</span>
@@ -293,7 +261,8 @@
                   <div class="prop-row">
                     <span class="pk">填充</span>
                     <span class="pv pv-copy" @click="copyValue('shape-fill', selectedShapeMeta.fill)">
-                      <span v-if="selectedShapeMeta.fill !== '--'" class="swatch" :style="{ background: selectedShapeMeta.fill }"></span>
+                      <span v-if="selectedShapeMeta.fill !== '--'" class="swatch"
+                        :style="{ background: selectedShapeMeta.fill }"></span>
                       {{ copiedKey === 'shape-fill' ? '已复制' : selectedShapeMeta.fill }}
                     </span>
                   </div>
@@ -311,10 +280,7 @@
                   </div>
                 </div>
 
-                <div
-                  v-if="store.selectedLayer.degraded"
-                  class="prop-section"
-                >
+                <div v-if="store.selectedLayer.degraded" class="prop-section">
                   <div class="prop-label">降级状态</div>
                   <div class="prop-row">
                     <span class="pk">状态</span>
@@ -332,6 +298,11 @@
               <div class="inspect-title">检查（占位）</div>
               <div class="inspect-card">用于显示选中节点的结构与引用信息。</div>
               <div class="inspect-hint">当前版本仅展示右侧活动栏切换与收起交互。</div>
+            </div>
+
+            <div v-show="isRightPanelOpen && rightActivePanel === 'export'"
+              class="right-panel-content export-panel-content">
+              <ExportList />
             </div>
 
             <div v-show="isRightPanelOpen" class="right-resize-handle" @mousedown="startRightResize"></div>
@@ -359,12 +330,8 @@
     <div v-if="previewDialogVisible" class="img-preview-mask" @click="closeImagePreview">
       <div class="img-preview-dialog" @click.stop>
         <button class="img-preview-close" type="button" @click="closeImagePreview" aria-label="关闭预览">×</button>
-        <img
-          v-if="selectedImagePreviewUrl"
-          class="img-preview-full"
-          :src="selectedImagePreviewUrl"
-          :alt="store.selectedLayer?.name || 'image preview'"
-        />
+        <img v-if="selectedImagePreviewUrl" class="img-preview-full" :src="selectedImagePreviewUrl"
+          :alt="store.selectedLayer?.name || 'image preview'" />
       </div>
     </div>
   </div>
@@ -382,6 +349,7 @@ import CanvasLayer from '../components/CanvasLayer.vue'
 import HotspotLayer from '../components/HotspotLayer.vue'
 import LayerSearch from '../components/LayerSearch.vue'
 import LayerSearchResults from '../components/LayerSearchResults.vue'
+import ExportList from '../components/ExportList.vue'
 
 const router = useRouter()
 const store = useMainStore()
@@ -607,7 +575,8 @@ const panels = [
 
 const rightPanels = [
   { id: 'properties', label: '属性' },
-  { id: 'inspect', label: '检查' }
+  { id: 'inspect', label: '检查' },
+  { id: 'export', label: '导出' }
 ]
 
 const panelStyle = computed(() => ({
@@ -1226,6 +1195,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
+}
+
+.export-panel-content {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .right-panel.is-resizing {

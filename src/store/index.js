@@ -44,10 +44,14 @@ function estimateBase64Size(dataUrl) {
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding)
 }
 
-function collectExportLayers(layers, context, parentId = null, flatIndex = []) {
+function collectExportLayers(layers, context, parentId = null, flatIndex = [], includedSet = null) {
   const result = []
 
   for (const layer of layers) {
+    if (includedSet && !includedSet.has(layer.id)) {
+      // skip this layer and its subtree when it's not included in exportList
+      continue
+    }
     const exportLayer = {
       id: layer.id,
       name: layer.name,
@@ -124,7 +128,7 @@ function collectExportLayers(layers, context, parentId = null, flatIndex = []) {
 
     if (layer.children && layer.children.length) {
       exportLayer.children = layer.children.map(child => child.id)
-      const children = collectExportLayers(layer.children, context, layer.id, flatIndex)
+      const children = collectExportLayers(layer.children, context, layer.id, flatIndex, includedSet)
       result.push(exportLayer)
       result.push(...children)
     } else {
@@ -144,7 +148,24 @@ function buildExportPayload(store) {
     assetByDataUrl: new Map()
   }
   const flatIndex = []
-  const layerList = collectExportLayers(store.layers, context, null, flatIndex)
+  // If exportList exists and has entries, prefer it to determine which layers to include
+  let includedSet = null
+  try {
+    if (Array.isArray(store.exportList) && store.exportList.length > 0) {
+      includedSet = new Set()
+      function collectIncluded(items) {
+        for (const it of items) {
+          if (!it.hidden) includedSet.add(it.id)
+          if (it.children) collectIncluded(it.children)
+        }
+      }
+      collectIncluded(store.exportList)
+    }
+  } catch (e) {
+    includedSet = null
+  }
+
+  const layerList = collectExportLayers(store.layers, context, null, flatIndex, includedSet)
 
   return {
     version: '1.0',
@@ -168,6 +189,7 @@ export const useMainStore = defineStore('main', {
   state: () => ({
     psd: null,
     layers: [],
+    exportList: [],
     isLoading: false,
     error: null,
     fileName: '',
@@ -262,9 +284,78 @@ export const useMainStore = defineStore('main', {
     },
     toggleLayerVisibility(id) {
       toggleLayerHidden(this.layers, id)
+      try {
+        this.syncExportListWithLayers()
+      } catch (e) {
+        // ignore sync errors
+      }
     },
     setCanvasRenderMode(mode) {
       this.canvasRenderMode = mode
+    },
+    initExportListFromLayers() {
+      function mapLayer(layer) {
+        const item = {
+          id: layer.id,
+          name: layer.name || 'layer',
+          hidden: !!layer.hidden,
+          overridden: false
+        }
+        if (layer.children && layer.children.length) {
+          item.children = layer.children.map(mapLayer)
+        }
+        return item
+      }
+
+      this.exportList = (this.layers || []).map(mapLayer)
+    },
+    syncExportListWithLayers() {
+      if (!Array.isArray(this.layers)) return
+      const existing = new Map()
+      function collect(list) {
+        for (const it of list) {
+          existing.set(it.id, it)
+          if (it.children) collect(it.children)
+        }
+      }
+
+      if (Array.isArray(this.exportList)) collect(this.exportList)
+
+      function mapLayer(layer) {
+        const prev = existing.get(layer.id)
+        const item = {
+          id: layer.id,
+          name: layer.name || 'layer',
+          hidden: !!layer.hidden,
+          overridden: prev ? !!prev.overridden : false
+        }
+        if (layer.children && layer.children.length) {
+          item.children = layer.children.map(mapLayer)
+        }
+        // if previously overridden, preserve hidden flag
+        if (prev && prev.overridden) {
+          item.hidden = !!prev.hidden
+          item.overridden = true
+        }
+        return item
+      }
+
+      this.exportList = (this.layers || []).map(mapLayer)
+    },
+    toggleExportItem(id, include) {
+      function traverse(list) {
+        for (const it of list) {
+          if (it.id === id) {
+            it.hidden = !include
+            it.overridden = true
+            return true
+          }
+          if (it.children && traverse(it.children)) return true
+        }
+        return false
+      }
+      if (!Array.isArray(this.exportList)) this.exportList = []
+      traverse(this.exportList)
     },
     toggleFilterHiddenLayers() {
       this.filterHiddenLayers = !this.filterHiddenLayers
@@ -301,6 +392,12 @@ export const useMainStore = defineStore('main', {
         }
         this.layers = normalizedLayers
         this.selectedLayerId = null
+        // 初始化 exportList
+        try {
+          this.initExportListFromLayers()
+        } catch (e) {
+          // ignore
+        }
 
         if (isPsd && psdData.canvas) {
           const blob = await new Promise(resolve => psdData.canvas.toBlob(resolve, 'image/png'))
